@@ -1,0 +1,192 @@
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+        <meta charset="utf-8">
+        <title>
+            Map of Life -- MODIS Habitat Change Tool
+        </title>
+        <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+        <link rel="stylesheet" href="/css/change.css" />
+        <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+        <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+        <script type="text/javascript">
+            google.load('visualization', '1', {packages: ['corechart']});
+        </script>
+        <script 
+            type="text/javascript" 
+            src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js">
+        </script>
+        <script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+        <script type="text/javascript" src="/js/mol_change_tool.js"></script>
+        <script type="text/javascript">
+            var scientificname = getURLParameter("name"), 
+                commonnames = '',
+                modis_maptypes = {},
+                chartData = [],
+                map_options = {
+                    zoom: 1,
+                    center: new google.maps.LatLng(0,0),
+                    mapTypeId: google.maps.MapTypeId.ROADMAP,
+                    streetViewControl: false,
+                    panControl: false,
+                    styles: [
+                      {
+                        "featureType": "landscape",
+                        "stylers": [
+                          { "color": "#f4f4f4" }
+                        ]
+                      },{
+                        "featureType": "water",
+                        "stylers": [
+                          { "visibility": "simplified" }
+                        ]
+                      },{
+                          "featureType": "water",
+                        "elementType": "labels",
+                        "stylers": [
+                          { "visibility": "off" }
+                        ]
+                      },{
+                        "featureType": "water",
+                        "stylers": [
+                          { "color": "#808080" }
+                        ]
+                      },{
+                        "featureType": "administrative",
+                        "stylers": [
+                          { "visibility": "off" }
+                        ]
+                      },{
+                        "featureType": "administrative.country",
+                        "elementType": "labels",
+                        "stylers": [
+                          { "visibility": "off" }
+                        ]
+                      },{
+                        "featureType": "road",
+                        "stylers": [
+                          { "visibility": "off" }
+                        ]
+                      },{
+                        "featureType": "poi",
+                        "stylers": [
+                          { "visibility": "off" }
+                        ]
+                      }
+                    ]               
+                },
+                map;
+                                
+            google.setOnLoadCallback(init);
+
+            $.ui.autocomplete.prototype._renderItem = function (ul, item) {
+
+                item.label = item.label.replace(
+                    new RegExp("(?![^&;]+;)(?!<[^<>]*)(" +
+                       $.ui.autocomplete.escapeRegex(this.term) +
+                       ")(?![^<>]*>)(?![^&;]+;)", "gi"),
+                    "<strong>$1</strong>"
+                );
+                return $("<li></li>")
+                    .data("item.autocomplete", item)
+                    .append("<a>" + item.label + "</a>")
+                    .appendTo(ul);
+            };
+    </script>
+</head>
+<body>
+
+    <div class="main">
+        <h2 class="HEADLINE">Species change analysis</h2>
+        <h3 class="DATE">Powered by Map of Life and Google Earth Engine</h3> 
+        <div class="topright">
+            <div class="searchContainer DATE">
+            	<input type="text" placeholder="Search by species name" size=40 class="search">
+            	<br>
+            	&nbsp;Click for the <a href="javascript:getRandom()">Species of the Moment.</a>
+            </div>
+            <div class='msg'></div>
+        </div>   
+        <table>
+            <tbody>
+                <tr>
+                    <td valign="top" halign="left">
+                        <div class="info">
+                            <div class="name">
+                                <div class="common"></div>
+                                <div class="sciname"></div>
+                            </div>
+                            <div class="tax">
+                                <div class="_class"></div>
+                                <div class="_order"></div>
+                            <div>
+                            <div class="elev_range"></div>
+			    <div class="habitats">
+                            <div class="suitable">
+                                <u>Suitable habitats</u>
+                                <div class="modis class_1"><div class="legend"></div>Evergreen Needleleaf Forests</div>
+                                <div class="modis class_2"><div class="legend"></div>Evergreen Broadleaf Forests</div>
+                                <div class="modis class_3"><div class="legend"></div>Deciduous Needleleaf Forests</div>
+                                <div class="modis class_4"><div class="legend"></div>Deciduous Broadleaf Forests</div>
+                                <div class="modis class_5"><div class="legend"></div>Mixed Forests</div>
+                                <div class="modis class_6"><div class="legend"></div>Closed Shrublands</div>
+                                <div class="modis class_7"><div class="legend"></div>Open Shrublands</div>
+                                <div class="modis class_8"><div class="legend"></div>Woody Savannas</div>
+                                <div class="modis class_9"><div class="legend"></div>Savannas</div>
+                                <div class="modis class_10"><div class="legend"></div>Grasslands</div>
+                                <div class="modis class_11"><div class="legend"></div>Permanent Wetlands</div>
+                                <div class="modis class_12"><div class="legend"></div>Cropland</div>
+                                <div class="modis class_13"><div class="legend"></div>Urban and Built-up</div>
+                                <div class="modis class_14"><div class="legend"></div>Cropland/Natural Vegetation Mosaics</div>
+                                <div class="modis class_15"><div class="legend"></div>Snow and Ice Barren</div>
+                                <div class="modis class_16"><div class="legend"></div>Barren</div>
+                                <div class="modis class_0"><div class="legend"></div>Water Bodies</div>
+			    </div>
+                            <div class="unsuitable">
+                                <u>Unsuitable habitats</u>
+                                <div class="modis class_1"><div class="legend"></div>Evergreen Needleleaf Forests</div>
+                                <div class="modis class_2"><div class="legend"></div>Evergreen Broadleaf Forests</div>
+                                <div class="modis class_3"><div class="legend"></div>Deciduous Needleleaf Forests</div>
+                                <div class="modis class_4"><div class="legend"></div>Deciduous Broadleaf Forests</div>
+                                <div class="modis class_5"><div class="legend"></div>Mixed Forests</div>
+                                <div class="modis class_6"><div class="legend"></div>Closed Shrublands</div>
+                                <div class="modis class_7"><div class="legend"></div>Open Shrublands</div>
+                                <div class="modis class_8"><div class="legend"></div>Woody Savannas</div>
+                                <div class="modis class_9"><div class="legend"></div>Savannas</div>
+                                <div class="modis class_10"><div class="legend"></div>Grasslands</div>
+                                <div class="modis class_11"><div class="legend"></div>Permanent Wetlands</div>
+                                <div class="modis class_12"><div class="legend"></div>Cropland</div>
+                                <div class="modis class_13"><div class="legend"></div>Urban and Built-up</div>
+                                <div class="modis class_14"><div class="legend"></div>Cropland/Natural Vegetation Mosaics</div>
+                                <div class="modis class_15"><div class="legend"></div>Snow and Ice Barren</div>
+                                <div class="modis class_16"><div class="legend"></div>Barren</div>
+                                <div class="modis class_0"><div class="legend"></div>Water Bodies</div>
+                            </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td  valign="top" halign="center">
+                        <div class="image"></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td valign="center" halign="center">
+                        <div class="visualization" style="width: 450px; height: 400px;"></div>
+                        <div class="modeContainer">
+                            Chart Type: 
+                            <select class="mode">
+                                <option value="pct">Percent of 2001 area</option>
+                                <option value="area">Area (sq km)</option>
+                            </select>
+                        </div>
+                    </td>
+                    <td valign="top">
+                        <div class="map_container" style="width: 450px; height: 400px;"></div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
