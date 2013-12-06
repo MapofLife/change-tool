@@ -76,7 +76,19 @@ class Geometry(computedobject.ComputedObject):
     self._geometries = geo_json.get('geometries')
 
     # The projection code (WKT or identifier) of the geometry.
-    self._proj = opt_proj
+    if opt_proj:
+      self._proj = opt_proj
+    elif 'crs' in geo_json:
+      if (isinstance(geo_json.get('crs'), dict) and
+          geo_json['crs'].get('type') == 'name' and
+          isinstance(geo_json['crs'].get('properties'), dict) and
+          isinstance(geo_json['crs']['properties'].get('name'), basestring)):
+        self._proj = geo_json['crs']['properties']['name']
+      else:
+        raise ee_exception.EEException('Invalid CRS declaration in GeoJSON: ' +
+                                       json.dumps(geo_json['crs']))
+    else:
+      self._proj = None
 
     # Whether the geometry has spherical geodesic edges.
     self._geodesic = opt_geodesic
@@ -308,8 +320,8 @@ class Geometry(computedobject.ComputedObject):
     """Returns a GeoJSON representation of the geometry."""
     if self.func:
       raise ee_exception.EEException(
-          'Can\'t convert a computed geometry to GeoJSON.  '
-          'Use getInfo instead.')
+          'Can\'t convert a computed geometry to GeoJSON. '
+          'Use getInfo() instead.')
 
     return self.encode()
 
@@ -317,9 +329,17 @@ class Geometry(computedobject.ComputedObject):
     """Returns a GeoJSON string representation of the geometry."""
     if self.func:
       raise ee_exception.EEException(
-          'Can\'t convert a computed geometry to GeoJSON.  '
-          'Use getInfo instead.')
+          'Can\'t convert a computed geometry to GeoJSON. '
+          'Use getInfo() instead.')
     return json.dumps(self.toGeoJSON())
+
+  def type(self):
+    """Returns the GeoJSON type of the geometry."""
+    if self.func:
+      raise ee_exception.EEException(
+          'Can\'t get the type of a computed geometry to GeoJSON. '
+          'Use getInfo() instead.')
+    return self._type
 
   def serialize(self):
     """Returns the serialized representation of this object."""

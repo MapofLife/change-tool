@@ -9,14 +9,14 @@ import datetime
 import numbers
 import sys
 
-import oauth2client.client
-
 from apifunction import ApiFunction
 from collection import Collection
 from computedobject import ComputedObject
 from customfunction import CustomFunction
 import data
 from ee_exception import EEException
+from ee_number import Number
+from ee_string import String
 import ee_types as types
 from encodable import Encodable
 from feature import Feature
@@ -26,8 +26,8 @@ from function import Function
 from geometry import Geometry
 from image import Image
 from imagecollection import ImageCollection
+import oauth2client.client
 from serializer import Serializer
-from ee_string import String
 
 
 OAUTH2_SCOPE = 'https://www.googleapis.com/auth/earthengine.readonly'
@@ -73,6 +73,7 @@ def Initialize(credentials=None, opt_url=None):
   FeatureCollection.initialize()
   Filter.initialize()
   Geometry.initialize()
+  Number.initialize()
   String.initialize()
   _InitializeGeneratedClasses()
   _InitializeUnboundMethods()
@@ -89,6 +90,7 @@ def Reset():
   FeatureCollection.reset()
   Filter.reset()
   Geometry.reset()
+  Number.reset()
   String.reset()
   _ResetGeneratedClasses()
   global Algorithms
@@ -222,6 +224,10 @@ def _Promote(arg, klass):
         return dateutil.parser.parse(arg)
     elif isinstance(arg, numbers.Number):
       return datetime.datetime.fromtimestamp(arg / 1000)
+    elif isinstance(arg, ComputedObject):
+      # Bypass promotion of this and do it directly.
+      func = ApiFunction.lookup('Date')
+      return ComputedObject(func, func.promoteArgs(func.nameArgs([arg])))
     else:
       return arg
   elif klass == 'Dictionary':
@@ -281,9 +287,9 @@ def _InitializeUnboundMethods():
 
     # Attach the function.
     # We need a copy of the function to attach properties.
-    # pylint: disable=unnecessary-lambda
-    bound = lambda *args, **kwargs: func.call(*args, **kwargs)
-    # pylint: enable=unnecessary-lambda
+    def GenerateFunction(f):
+      return lambda *args, **kwargs: f.call(*args, **kwargs)  # pylint: disable=unnecessary-lambda
+    bound = GenerateFunction(func)
     bound.signature = signature
     bound.__doc__ = str(func)
     setattr(target, name_parts[0], bound)

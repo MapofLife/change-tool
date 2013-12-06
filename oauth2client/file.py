@@ -20,22 +20,17 @@ credentials.
 
 __author__ = 'jcgregorio@google.com (Joe Gregorio)'
 
+import os
+import stat
 import threading
 
-
-try:  # pragma: no cover
-  import simplejson
-except ImportError:  # pragma: no cover
-  try:
-    # Try to import from django, should work on App Engine
-    from django.utils import simplejson
-  except ImportError:
-    # Should work for Python2.6 and higher.
-    import json as simplejson
-
-
+from anyjson import simplejson
 from client import Storage as BaseStorage
 from client import Credentials
+
+
+class CredentialsFileSymbolicLinkError(Exception):
+  """Credentials files must not be symbolic links."""
 
 
 class Storage(BaseStorage):
@@ -44,6 +39,11 @@ class Storage(BaseStorage):
   def __init__(self, filename):
     self._filename = filename
     self._lock = threading.Lock()
+
+  def _validate_file(self):
+    if os.path.islink(self._filename):
+      raise CredentialsFileSymbolicLinkError(
+          'File: %s is a symbolic link.' % self._filename)
 
   def acquire_lock(self):
     """Acquires any lock necessary to access this Storage.
@@ -64,10 +64,14 @@ class Storage(BaseStorage):
 
     Returns:
       oauth2client.client.Credentials
+
+    Raises:
+      CredentialsFileSymbolicLinkError if the file is a symbolic link.
     """
     credentials = None
+    self._validate_file()
     try:
-      f = open(self._filename, 'r')
+      f = open(self._filename, 'rb')
       content = f.read()
       f.close()
     except IOError:
@@ -81,12 +85,40 @@ class Storage(BaseStorage):
 
     return credentials
 
+  def _create_file_if_needed(self):
+    """Create an empty file if necessary.
+
+    This method will not initialize the file. Instead it implements a
+    simple version of "touch" to ensure the file has been created.
+    """
+    if not os.path.exists(self._filename):
+      old_umask = os.umask(0177)
+      try:
+        open(self._filename, 'a+b').close()
+      finally:
+        os.umask(old_umask)
+
   def locked_put(self, credentials):
     """Write Credentials to file.
 
     Args:
       credentials: Credentials, the credentials to store.
+
+    Raises:
+      CredentialsFileSymbolicLinkError if the file is a symbolic link.
     """
-    f = open(self._filename, 'w')
+
+    self._create_file_if_needed()
+    self._validate_file()
+    f = open(self._filename, 'wb')
     f.write(credentials.to_json())
     f.close()
+
+  def locked_delete(self):
+    """Delete Credentials file.
+
+    Args:
+      credentials: Credentials, the credentials to store.
+    """
+
+    os.unlink(self._filename)

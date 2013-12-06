@@ -1,0 +1,121 @@
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+        <meta charset="utf-8">
+        <title>
+            Map of Life -- Species Habitat Change Tool
+        </title>
+        <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+        <link rel="stylesheet" href="/css/change.css" />
+        <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+        <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+        <script src="http://d3js.org/d3.v3.js"></script>
+        <script type="text/javascript">
+            google.load('visualization', '1', {packages: ['corechart']});
+        </script>
+        <script 
+            type="text/javascript" 
+            src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js">
+        </script>
+        <script src="http://underscorejs.org/underscore-min.js"></script>
+        <script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+        <script type="text/javascript" src="/js/mol_change_tool.js"></script>
+</head>
+<body>
+
+    <div class="main">
+        <h2 class="HEADLINE">Species change analysis</h2>
+        <h3 class="DATE">Powered by Map of Life and Google Earth Engine</h3> 
+        <div class="topright">
+            <div class="searchContainer DATE">
+            	<input type="text" placeholder="Search by species name" size=40 class="search">
+            	<br>
+            	&nbsp;Click for the <a href="javascript:getRandom()">Species of the Moment.</a>
+            </div>
+            <div class='msg'></div>
+        </div>   
+        <table>
+            <tbody>
+                <tr>
+                    <td valign="top" halign="left">
+                        <div class="info">
+                            <div class="name">
+                                <div class="common"></div>
+                                <div class="sciname"></div>
+                            </div>
+                            <div class="tax">
+                                <div class="_class"></div>
+                                <div class="_order"></div>
+                            <div>
+                            <div class="elev_range"></div>
+                       <div class="habitats">
+                            <div class="suitable">
+                                <u>Suitable habitats</u>
+                                <div class="class_1"><div class="legend"></div>Evergreen Needleleaf Forests</div>
+                                <div class="class_2"><div class="legend"></div>Evergreen Broadleaf Forests</div>
+                                <div class="class_3"><div class="legend"></div>Deciduous Needleleaf Forests</div>
+                                <div class="class_4"><div class="legend"></div>Deciduous Broadleaf Forests</div>
+                                <div class="class_5"><div class="legend"></div>Mixed Forests</div>
+                                <div class="class_6"><div class="legend"></div>Closed Shrublands</div>
+                                <div class="class_7"><div class="legend"></div>Open Shrublands</div>
+                                <div class="class_8"><div class="legend"></div>Woody Savannas</div>
+                                <div class="class_9"><div class="legend"></div>Savannas</div>
+                                <div class="class_10"><div class="legend"></div>Grasslands</div>
+                                <div class="class_11"><div class="legend"></div>Permanent Wetlands</div>
+                                <div class="class_12"><div class="legend"></div>Cropland</div>
+                                <div class="class_13"><div class="legend"></div>Urban and Built-up</div>
+                                <div class="class_14"><div class="legend"></div>Cropland/Natural Vegetation Mosaics</div>
+                                <div class="class_15"><div class="legend"></div>Snow and Ice Barren</div>
+                                <div class="class_16"><div class="legend"></div>Barren</div>
+                                <div class="class_0"><div class="legend"></div>Water Bodies</div>
+                            </div>
+                            <div class="unsuitable">
+                                <u>Unsuitable habitats</u>
+                                <div class="class_1"><div class="legend"></div>Evergreen Needleleaf Forests</div>
+                                <div class="class_2"><div class="legend"></div>Evergreen Broadleaf Forests</div>
+                                <div class="class_3"><div class="legend"></div>Deciduous Needleleaf Forests</div>
+                                <div class="class_4"><div class="legend"></div>Deciduous Broadleaf Forests</div>
+                                <div class="class_5"><div class="legend"></div>Mixed Forests</div>
+                                <div class="class_6"><div class="legend"></div>Closed Shrublands</div>
+                                <div class="class_7"><div class="legend"></div>Open Shrublands</div>
+                                <div class="class_8"><div class="legend"></div>Woody Savannas</div>
+                                <div class="class_9"><div class="legend"></div>Savannas</div>
+                                <div class="class_10"><div class="legend"></div>Grasslands</div>
+                                <div class="class_11"><div class="legend"></div>Permanent Wetlands</div>
+                                <div class="class_12"><div class="legend"></div>Cropland</div>
+                                <div class="class_13"><div class="legend"></div>Urban and Built-up</div>
+                                <div class="class_14"><div class="legend"></div>Cropland/Natural Vegetation Mosaics</div>
+                                <div class="class_15"><div class="legend"></div>Snow and Ice Barren</div>
+                                <div class="class_16"><div class="legend"></div>Barren</div>
+                                <div class="class_0"><div class="legend"></div>Water Bodies</div>
+                            </div>
+                            </div>
+                            <div class="rerun">Re-run analysis with the selected habitat preferences.</div>
+                        </div>
+                    </td>
+                    <td  valign="center" halign="center">
+                        <div class="image"></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td valign="center" halign="center">
+                        <div class="area_chart" style="width: 450px; height: 400px;"></div>
+                        <div class="modeContainer">
+                            Chart Type: 
+                            <select class="mode">
+                                <option value="pct">Percent of 2001 area</option>
+                                <option value="area">Area (sq km)</option>
+                            </select>
+                        </div>
+                        <div class="pop_chart" style="width: 450px; height: 400px;"></div>
+                    </td>
+                    <td valign="top">
+                        <div class="map_container" style="width: 450px; height: 400px;"></div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

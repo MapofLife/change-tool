@@ -20,13 +20,12 @@ class BaseHandler(webapp2.RequestHandler):
         path = os.path.join(os.path.dirname(__file__), "html", f)
         self.response.out.write(open(path, 'r').read())
 
-class ChangePage(BaseHandler):
+class ChangeTool(BaseHandler):
     def get(self):
-        self.render_template('change-chart-template.html', {})
+        self.render_template('change-tool-template.html', {})
 
 application = webapp2.WSGIApplication(
-         [('/', ChangePage), ('/.*',ChangePage),
-         ('/change',ChangePage)],
+         [('/', ChangeTool), ('/.*',ChangeTool)],
          debug=True)
 
 def main():

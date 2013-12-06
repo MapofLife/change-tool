@@ -1,3 +1,98 @@
+var scientificname = getURLParameter("name"), 
+    commonnames = '',
+    modis_maptypes = {},
+    chartData = [],
+    speciesPrefs,
+    host = '', //(window.location.hostname != 'localhost') ?
+        //'http://d152fom84hgyre.cloudfront.net/' : '',
+    map = null;
+    map_options = {
+        zoom: 1,
+        center: new google.maps.LatLng(0,0),
+        mapTypeId: google.maps.MapTypeId.ROADMAP,
+        streetViewControl: false,
+        panControl: false,
+        styles: [
+          {
+            "featureType": "landscape",
+            "stylers": [
+              { "color": "#f4f4f4" }
+            ]
+          },{
+            "featureType": "water",
+            "stylers": [
+              { "visibility": "simplified" }
+            ]
+          },{
+              "featureType": "water",
+            "elementType": "labels",
+            "stylers": [
+              { "visibility": "off" }
+            ]
+          },{
+            "featureType": "water",
+            "stylers": [
+              { "color": "#808080" }
+            ]
+          },{
+            "featureType": "administrative",
+            "stylers": [
+              { "visibility": "off" }
+            ]
+          },{
+            "featureType": "administrative.country",
+            "elementType": "labels",
+            "stylers": [
+              { "visibility": "off" }
+            ]
+          },{
+            "featureType": "road",
+            "stylers": [
+              { "visibility": "off" }
+            ]
+          },{
+            "featureType": "poi",
+            "stylers": [
+              { "visibility": "off" }
+            ]
+          }
+        ]               
+    };
+                    
+google.setOnLoadCallback(init);
+
+$.ui.autocomplete.prototype._renderItem = function (ul, item) {
+
+    item.label = item.label.replace(
+        new RegExp("(?![^&;]+;)(?!<[^<>]*)(" +
+           $.ui.autocomplete.escapeRegex(this.term) +
+           ")(?![^<>]*>)(?![^&;]+;)", "gi"),
+        "<strong>$1</strong>"
+    );
+    return $("<li></li>")
+        .data("item.autocomplete", item)
+        .append("<a>" + item.label + "</a>")
+        .appendTo(ul);
+};
+
+function getImage() {
+    $.getJSON(
+        'https://ajax.googleapis.com/ajax/services/search/images?v=1.0&q=' +
+            scientificname +'&callback=?',
+        function(response) {
+            var src = response.responseData.results[0].url;
+            $('.image').empty();
+            $('.image').append($('<img class="specimg" src="'+src+'">'));
+            if($('.specimg').width()>$('.specimg').height()) {
+                $('.specimg').width(250);
+            } else {
+                $('.specimg').height(250);
+            }
+        },
+        'jsonp'
+    );
+}
+
 function getURLParameter(name) {
     return decodeURI((RegExp(name + '=' + '(.+?)(&|$)')
     .exec(location.search)||[,null])[1]);
@@ -12,7 +107,7 @@ function getRandom() {
             //$('.search').val(getEE_ID(result.rows[0].binomial));
             getEE_ID(result.rows[0].binomial);
         }
-    )
+    );
 }
 function init() {
         $('.search').keypress(function(e) {
@@ -21,7 +116,9 @@ function init() {
                 setTimeout(2000,"$('.search').autocomplete('close');");
             }
         });
-
+        
+        
+        //Set up autocomplete
         $('.search').autocomplete({
             minLength: 3,
             source: function(request, response) {
@@ -81,26 +178,72 @@ function init() {
                 
             }
       });
+      
+      $('.unsuitable [class*=class_]').click(
+          function() {
+              $(this).hide();
+              $('.suitable .' + $(this).attr('class')).show();
+              $('.rerun').show();
+          }
+      );
+      
+      $('.suitable [class*=class_]').click(
+          function() {
+              var habitats;
+              $(this).hide();
+              $('.unsuitable .' + $(this).attr('class')).show();
+              $('.rerun').show();
+           }
+      );
+      
+      $('.rerun').click(
+          function() {
+              speciesPrefs.rows[0].modis_habitats = _.map(
+                  $('.suitable [class*=class_]:visible'),
+                  function(elem,index) {
+                    return $(elem).attr("class").replace("class_","");
+                  }
+              ).join(',');
+              clearCharts()
+              showLoaders();
+              callBackend(speciesPrefs);     
+          }
+      );
+
       $('.mode').change(
           function() {
-              if(chartData.length > 0) {
-                  chartHandler(chartData)
+              if(chartData.area.length > 0) {
+                  chartHandler(chartData);
               }
           }
-      )
+      );
     if(getURLParameter("name")!='null') {
         getEE_ID(getURLParameter("name"));
     } else {
         $('.working').hide();
-        $('.visualization').html('');
+        clearCharts();
     }
 }
-
+function clearCharts() {
+    $('.map_container').empty();
+    $('.pop_chart').empty();
+    $('.area_chart').empty();
+    $('.modeContainer').hide();
+}
+function showLoaders() {
+    $('.pop_chart').html('<img height=25 width=25 src="/images/loading.gif">');
+    $('.area_chart').html('<img height=25 width=25 src="/images/loading.gif">');
+    $('.map_container').html('<img height=25 width=25 src="/images/loading.gif">');
+    
+}
 function getEE_ID(name) {
     var sql = '' + 
          'SELECT DISTINCT ' +
                 'l.scientificname as scientificname, ' +
-                'CASE when e.habitatprefs is null then m.modisprefs else e.habitatprefs end as modis_habitats, ' +
+                'CASE WHEN e.habitatprefs is null THEN ' +
+                    'm.modisprefs '+
+                'ELSE ' +
+                  ' e.habitatprefs end as modis_habitats, ' +
                 "CASE WHEN e.finalmin is null OR e.finalmin = 'DD' then '-1000' else e.finalmin end as mine, " +
                 "CASE WHEN e.finalmax is null OR e.finalmax = 'DD' then '10000' else e.finalmax end as maxe, " +
                 'ee.ee_id as ee_id, ' +
@@ -135,175 +278,208 @@ function getEE_ID(name) {
             getURLParameter("source") : 'iucn',
          params = {q : sql.replace(/{TERM}/g,term).replace(/{SOURCE}/g,source)};
          
-    map = new google.maps.Map($('.map_container')[0],map_options);
-    
+    clearCharts();
+    showLoaders();
     chartData = [];
-
-    $('.modeContainer').hide();
-    $('.visualization').html('<img height=40 width=40 style="position:absolute; left:205px; top:205px;" src="/static/loading.gif">');
     
-    $.getJSON('http://mol.cartodb.com/api/v2/sql', params, function(response) {
-        
-        if (response.total_rows == 0) {
-            $('.working').hide();
-            $('.info').hide();
-            $('.image').empty();
-            $('.visualization').html('There are no range maps or habitat preference data for this species.');
-            return;
-        } else {
-            $('.msg').html('');
-        }
-        
-        
-        $('.info').hide();
-        var bounds = new google.maps.LatLngBounds(
-            new google.maps.LatLng(response.rows[0].miny, response.rows[0].minx),
-            new google.maps.LatLng(response.rows[0].maxy, response.rows[0].maxx)
-        );
-        map.fitBounds(bounds);
-        var habitats = response.rows[0].modis_habitats.split(','),
-            elev = [
-                (response.rows[0].mine == 'DD') ? 
-                    -1000 : response.rows[0].mine,
-                (response.rows[0].maxe == 'DD') ? 
-                    9000 : response.rows[0].maxe],
-                ee_id = response.rows[0].ee_id,
-            mod_params = {
-                habitats : response.rows[0].modis_habitats,
-                elevation : elev.join(','),
-                ee_id : ee_id,
-		mod_ver: 5.1, //$('.mod_ver').val(),
-		minx: response.rows[0].minx,
-		miny: response.rows[0].miny,
-		maxx: response.rows[0].maxx,
-		maxy: response.rows[0].maxy
-            };
-        scientificname = response.rows[0].scientificname;
-        commonnames = ' (' + response.rows[0].names + ')';
-        if(response.rows[0].eolthumbnailurl!=null) {
-            $('.image').empty()
-            $('.image').append($('<img class="specimg" src="'+response.rows[0].eolmediaurl+'">'));
-            if($('.specimg').width()>$('.specimg').height()) {
-                $('.specimg').width(250);
-            } else {
-                $('.specimg').height(250);
-            }
-            
-        } else {
-             $('.image').html('');
-        }
-        
-        $('.sciname').html(response.rows[0].scientificname);
-        $('.common').html(response.rows[0].names.replace(/,.*/,''));
-        if(response.rows[0]._class!=null) {        
-            $('._class').html('Class: ' + response.rows[0]._class);
-        } else {
-            
-        }
-        
-        $('.family').html('Family: ' + response.rows[0].family);
-        $('._order').html('Order: ' + response.rows[0]._order);
-        if(elev[0] != '-1000' && elev[1] != '10000') {
-            $('.elev_range').html('Elevation range: '+ elev[0]+' to '+elev[1]+' meters');
-        } else {
-            $('.elev_range').html('Elevation range: all');
-        }
-        $('.suitable .modis').hide();
-        $('.unsuitable .modis').show();
-        $.each(
-            habitats,
-            function(i) {
-                $('.suitable .modis.class_'+habitats[i]).show();
-                
-                $('.unsuitable .modis.class_'+habitats[i]).hide();
-            }
-        );
-        $('.info').show();
-        
-        $.getJSON('ee_modis_change', 
-            mod_params, 
-            function(response) {
-                chartHandler(response);
-            }
-        ).error(
-	    function() {
-                $.getJSON('ee_modis_change',
-                    mod_params,
-                    function(response) {
-                        chartHandler(response);
-                    }
-                )
-            }
-	);
-        mod_params.get_area = 'false';
-        $.getJSON(
-            'ee_modis_change', 
-            mod_params, 
-            function(response) {
-                loadLayers(response);
-            }
+    $.getJSON(
+        'http://mol.cartodb.com/api/v2/sql', 
+        params, 
+        callBackend
         ).error(
             function() {
-                $.getJSON(
-                    'ee_modis_change', 
-                    mod_params, 
-                    function(response) {
-                        loadLayers(response);
-                    }
-                );
+                $('.working').hide();
+                $('.visualization').html(
+                    "There are no range maps or " + 
+                    "habitat preference data for this species.");
             }
-        );
-    }).error(function() {
+        );    
+}
+function callBackend(response) {
+    var bounds, habitats;
+    $('.rerun').hide();
+    speciesPrefs = response;
+    if (response.total_rows == 0) {
         $('.working').hide();
-        $('.visualization').html(
-            "There are no range maps or " + 
-            "habitat preference data for this species.");
-    });
+        $('.info').hide();
+        $('.image').empty();
+        $('.visualization').html('There are no range maps or habitat preference data for this species.');
+        return;
+    } else {
+        $('.msg').html('');
+    }
     
+
+    $('.info').hide();
+    bounds = new google.maps.LatLngBounds(
+        new google.maps.LatLng(response.rows[0].miny, response.rows[0].minx),
+        new google.maps.LatLng(response.rows[0].maxy, response.rows[0].maxx)
+    );
+    habitats = response.rows[0].modis_habitats.split(','),
+        elev = [
+            (response.rows[0].mine == 'DD') ? 
+                -1000 : response.rows[0].mine,
+            (response.rows[0].maxe == 'DD') ? 
+                9000 : response.rows[0].maxe],
+            ee_id = response.rows[0].ee_id,
+        mod_params = {
+            habitats : response.rows[0].modis_habitats,
+            elevation : elev.join(','),
+            ee_id : ee_id,
+            mod_ver: 5.1, //$('.mod_ver').val(),
+            minx: response.rows[0].minx,
+            miny: response.rows[0].miny,
+            maxx: response.rows[0].maxx,
+            maxy: response.rows[0].maxy,
+            get_area: true
+        };
+    scientificname = response.rows[0].scientificname;
+    commonnames = ' (' + response.rows[0].names + ')';
+    if(response.rows[0].eolthumbnailurl!=null) {
+        $('.image').empty();
+        $('.image').append($('<img class="specimg" src="'+response.rows[0].eolmediaurl+'">'));
+        if($('.specimg').width()>$('.specimg').height()) {
+            $('.specimg').width(250);
+        } else {
+            $('.specimg').height(250);
+        }
+        
+    } else {
+         getImage();
+    }
+    
+    $('.sciname').html(response.rows[0].scientificname);
+    $('.common').html(response.rows[0].names.replace(/,.*/,''));
+    if(response.rows[0]._class!=null) {        
+        $('._class').html('Class: ' + response.rows[0]._class);
+    } else {
+        
+    }
+    
+    $('.family').html('Family: ' + response.rows[0].family);
+    $('._order').html('Order: ' + response.rows[0]._order);
+    if(elev[0] != '-1000' && elev[1] != '10000') {
+        $('.elev_range').html('Elevation range: '+ elev[0]+' to '+elev[1]+' meters');
+    } else {
+        $('.elev_range').html('Elevation range: all');
+    }
+    $('.suitable [class*=class_]').hide();
+    $('.unsuitable [class*=class_]').show();
+    $.each(
+        habitats,
+        function(i) {
+            $('.suitable .class_'+habitats[i]).show();
+            
+            $('.unsuitable .class_'+habitats[i]).hide();
+        }
+    );
+    $('.info').show('fade');
+    
+    mod_params.get_area = 'true';
+    
+    $.getJSON(
+        host+'api/change?callback=?', 
+        mod_params, 
+        function(response) {
+            chartHandler(response);
+        },
+        'jsonp'
+    ).error(
+        function() {
+            $.getJSON(
+                host+'api/change?/callback=?',
+                mod_params,
+                function(response) {
+                    chartHandler(response);
+                },
+        'jsonp'
+            );
+        }
+    );
+    mod_params.get_area = 'false';
+    $.getJSON(
+        host+'api/change?callback=?', 
+        mod_params, 
+        function(response) {
+            map = new google.maps.Map($('.map_container')[0],map_options);
+            map.fitBounds(bounds);
+            loadLayers(response);
+        },
+        'jsonp'
+    ).error(
+        function() {
+            $.getJSON(
+                host+'api/change?callback=?', 
+                mod_params, 
+                function(response) {
+                    loadLayers(response);
+                },
+        'jsonp'
+            );
+        }
+    );
 }
 function chartHandler(response) {
-    var pct_change = [['Year','% of 2001 Area']],
-        vals = response.slice(1);
+    var pct_change = [response.area[0]],
+        vals = response.area.slice(1);
+        vals = vals.sort(
+        function(a,b){
+            if(a[0]<b[0]) {
+                return -1;
+            } else { 
+                return 1;
+            } 
+    });
+      
+    pct_change[0][0] = '% 2001 Area';    
     chartData = response;
     $('.working').hide();
     
     $('.msg').html('');
+    
     $.each(
         vals,
         function(row) {
-            pct_change.push([vals[row][0],100*(vals[row][1])/vals[0][1]]);
+            pct_change.push(
+            	[vals[row][0],Math.round(1000*(vals[row][1]/vals[0][1]))/10]
+        	);
         }
-    )
+    );
     
     if ($('.mode').val() == 'pct') {
-        drawVisualization(pct_change, '% 2001 Habitat Area');
+        drawVisualization(
+            {'pop': response.pop, 'area': pct_change}, 
+            '% 2001 Habitat Area'
+        );
     } else {
         drawVisualization(response, 'Area (sq km)');
     }
 
 
 }
-function drawVisualization(viz_response, title) {
+function drawVisualization(data, title) {
     // Create and populate the data table.
-    var data = google.visualization.arrayToDataTable(viz_response), 
-    chart = new google.visualization.ScatterChart($('.visualization')[0]);
-
+    var pop_data, 
+        pop_chart, 
+        area_data = google.visualization.arrayToDataTable(data.area),
+        area_chart = new google.visualization.ScatterChart($('.area_chart')[0]);
+    
+    
+    if(data.pop[1][2]&&data.pop[2][2]>=0) {
+        pop_data =  google.visualization.arrayToDataTable(data.pop),
+        pop_chart = new google.visualization.ScatterChart($('.pop_chart')[0]);
+        $('pop_chart').empty();
+    }
+    
     $('.modeContainer').show();
-    chart.draw(data, {
-        title: 'Suitable habitat for {NAME} {COMMON}'
+    area_chart.draw(area_data, {
+        title: 'Suitable habitat area for {NAME} {COMMON}'
             .replace(/{NAME}/g, scientificname)
             .replace(/{COMMON}/g, commonnames),
         width: 450,
         height: 400,
         //theme: "maximized",
-        vAxis: {
-            title : title,
-            titleTextStyle : {
-                color : "green"
-            },
-            visibleInLegend: false,
-            viewWindowMode: 'pretty'
-        },
+       
         hAxis: {
             title: "YEAR",
             titleTextStyle: {
@@ -312,7 +488,7 @@ function drawVisualization(viz_response, title) {
             format: '####',
             viewWindowMode: 'pretty'
         },
-        series: {0:{ visibleInLegend: false}},
+        series: {0:{ title: title,visibleInLegend: false}},
         trendlines: {
             0 : {
                 color: 'orange',
@@ -331,8 +507,53 @@ function drawVisualization(viz_response, title) {
     });
     //chart.setSelection()
     google.visualization.events.addListener(
-        chart, 'select', 
-        function() {selectHandler(chart, data)});
+        area_chart, 'select', 
+        function() {selectHandler(area_chart, data)});
+        if(pop_chart && pop_data) {
+        pop_chart.draw(pop_data, {
+            title: 'Population within habitat.'
+                .replace(/{NAME}/g, scientificname)
+                .replace(/{COMMON}/g, commonnames),
+            width: 450,
+            height: 400,
+            //theme: "maximized",
+           
+            hAxis: {
+                title: "YEAR",
+                titleTextStyle: {
+                    color: "green"
+                },
+                format: '####',
+                viewWindowMode: 'pretty'
+            },
+            series: {0:{ visibleInLegend: false}, 1:{visibleInLegend: false}},
+            trendlines: {
+                0 : { color: 'blue',
+                    lineWidth: 10,
+                    opacity: 0.2,
+                    pointSize: 0,
+                    selectable: false,
+                    visibleInLegend: true},
+                1 : { color: 'blue',
+                    lineWidth: 10,
+                    opacity: 0.2,
+                    pointSize: 0,
+                    selectable: false,
+                    visibleInLegend: true}
+            },
+            legend: {
+                position: 'top'
+            },
+            pointSize: 17,
+            
+        });
+        //chart.setSelection()
+        google.visualization.events.addListener(
+            pop_chart, 'select', 
+            function() {
+                selectHandler(pop_chart, data);
+            });
+    }
 }
 
 function selectHandler(chart, data) {
@@ -340,7 +561,7 @@ function selectHandler(chart, data) {
         map.overlayMapTypes.setAt(
             0,
             modis_maptypes[
-                'modis_'+ data.getValue(chart.getSelection()[0].row,0)
+                'modis_'+ data.area[chart.getSelection()[0].row][0]
                 ]
         );
     } catch (e) {
@@ -351,6 +572,22 @@ function selectHandler(chart, data) {
 }
 
 function loadLayers(modis_layers) {
+    
+    var 
+        cdb_url = "http://d3dvrpov25vfw0.cloudfront.net/" +
+            "tiles/change_tool/{Z}/{X}/{Y}.png?sql=" +
+            "SELECT * FROM get_tile('iucn','range','{name}',null)"
+        .replace('{name}',scientificname),
+        cdb_maptype  = new google.maps.ImageMapType({
+                getTileUrl: function(coord, zoom) {
+                    return cdb_url
+                        .replace(/{X}/g, coord.x)
+                        .replace(/{Y}/g, coord.y)
+                        .replace(/{Z}/g, zoom);
+                },
+                tileSize: new google.maps.Size(256, 256)
+            });
+        
     $.each(
         modis_layers,
         function(year) {
@@ -359,12 +596,13 @@ function loadLayers(modis_layers) {
                     return modis_layers[year]
                         .replace(/{X}/g, coord.x)
                         .replace(/{Y}/g, coord.y)
-                        .replace(/{Z}/g, zoom)
+                        .replace(/{Z}/g, zoom);
                 },
                 tileSize: new google.maps.Size(256, 256)
             });
         }
-    )
-    map.overlayMapTypes.setAt(0,modis_maptypes['modis_2001']);
+    );
     
+    map.overlayMapTypes.setAt(0,modis_maptypes['modis_2001']);
+    map.overlayMapTypes.setAt(1,cdb_maptype);
 }

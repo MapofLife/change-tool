@@ -10,7 +10,7 @@ html {max-width:1143px;}
       margin:0; 
 }
 a:link {
-	color: black;
+  color: black;
 }
 
 .HEADLINE{
@@ -43,10 +43,10 @@ a:link {
 .suitable {
     float:left;
 }
-.modis .class {
+ .class {
     display:none;
 }
-.modis_label {
+_label {
     display:none;
 }
 
@@ -88,8 +88,11 @@ a:link {
     height: 50px;
 }
 .image {
-    text-align:center;
-    border-radius:4pt;
+    text-align: center;
+}
+.image img{
+    text-align: center;
+    border-radius:4px;
     overflow:hidden;
 }
 .info {
@@ -140,27 +143,37 @@ a:link {
     padding: 1em 0 0.2em 0;
 }
 .legend {
-	display: inline-block;
-	margin-right: 5pt;
-	width:10px; 
-	height:10px;
-	border:0.5pt solid black;
+  display: inline-block;
+  margin-right: 5pt;
+  width:10px; 
+  height:10px;
+  border:0.5pt solid black;
 }
-.modis.class_0 .legend {background-color:#aec3d4}
-.modis.class_1 .legend {background-color:#152106}
-.modis.class_2 .legend {background-color:#225129}
-.modis.class_3 .legend {background-color:#369b47}
-.modis.class_4 .legend {background-color:#30eb5b}
-.modis.class_5 .legend {background-color:#387242}
-.modis.class_6 .legend {background-color:#6a2325}
-.modis.class_7 .legend {background-color:#c3aa69}
-.modis.class_8 .legend {background-color:#b76031}
-.modis.class_9 .legend {background-color:#d9903d}
-.modis.class_10 .legend {background-color:#91af40}
-.modis.class_11 .legend {background-color:#111149}
-.modis.class_12 .legend {background-color:#cdb33b}
-.modis.class_13 .legend {background-color:#cc0013}
-.modis.class_14 .legend {background-color:#33280d}
-.modis.class_15 .legend {background-color:#d7cdcc}
-.modis.class_16 .legend {background-color:#f7e084}
-.modis.class_17 .legend {background-color:#6f6f6f}
+
+.rerun {
+    cursor: pointer;
+    cursor: hand;
+    float:left;
+    padding:4px;
+    text-decoration: underline;
+}
+
+[class*=class_] {cursor: pointer; cursor: hand;}
+.class_0 .legend {background-color:#aec3d4}
+.class_1 .legend {background-color:#152106}
+.class_2 .legend {background-color:#225129}
+.class_3 .legend {background-color:#369b47}
+.class_4 .legend {background-color:#30eb5b}
+.class_5 .legend {background-color:#387242}
+.class_6 .legend {background-color:#6a2325}
+.class_7 .legend {background-color:#c3aa69}
+.class_8 .legend {background-color:#b76031}
+.class_9 .legend {background-color:#d9903d}
+.class_10 .legend {background-color:#91af40}
+.class_11 .legend {background-color:#111149}
+.class_12 .legend {background-color:#cdb33b}
+.class_13 .legend {background-color:#cc0013}
+.class_14 .legend {background-color:#33280d}
+.class_15 .legend {background-color:#d7cdcc}
+.class_16 .legend {background-color:#f7e084}
+.class_17 .legend {background-color:#6f6f6f}

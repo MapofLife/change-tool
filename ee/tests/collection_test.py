@@ -73,26 +73,44 @@ class CollectionTestCase(apitestcase.ApiTestCase):
   def testMapping(self):
     """Verifies the behavior of the map() method."""
     collection = ee.ImageCollection('foo')
-    mapped = collection.map(
-        (lambda img: img.select('bar')), None, {'baz': 42}, ee.String('quux'))
+    mapped = collection.map(lambda img: img.select('bar'))
 
     self.assertTrue(isinstance(mapped, ee.ImageCollection))
     self.assertEquals(ee.ApiFunction.lookup('Collection.map'), mapped.func)
     self.assertEquals(collection, mapped.args['collection'])
-    self.assertEquals({'_MAPPING_VAR_0': '.all'}, mapped.args['dynamicArgs'])
-    self.assertEquals({'baz': 42}, mapped.args['constantArgs'])
-    self.assertEquals(ee.String('quux'), mapped.args['destination'])
 
     # Need to do a serialized comparison for the function body because
     # variables returned from CustomFunction.variable() do not implement
     # __eq__.
     sig = {
         'returns': 'Image',
-        'args': [{'name': '_MAPPING_VAR_0', 'type': 'Image'}]
+        'args': [{'name': '_MAPPING_VAR_0_0', 'type': 'Image'}]
     }
     expected_function = ee.CustomFunction(sig, lambda img: img.select('bar'))
     self.assertEquals(expected_function.serialize(),
                       mapped.args['baseAlgorithm'].serialize())
+
+  def testNestedMapping(self):
+    """Verifies that nested map() calls produce distinct variables."""
+    collection = ee.FeatureCollection('foo')
+    result = collection.map(lambda x: collection.map(lambda y: [x, y]))
+
+    # Verify the signatures.
+    self.assertEquals(
+        '_MAPPING_VAR_1_0',
+        result.args['baseAlgorithm']._signature['args'][0]['name'])
+    inner_result = result.args['baseAlgorithm']._body
+    self.assertEquals(
+        '_MAPPING_VAR_0_0',
+        inner_result.args['baseAlgorithm']._signature['args'][0]['name'])
+
+    # Verify the references.
+    self.assertEquals(
+        '_MAPPING_VAR_1_0',
+        inner_result.args['baseAlgorithm']._body[0]._name)
+    self.assertEquals(
+        '_MAPPING_VAR_0_0',
+        inner_result.args['baseAlgorithm']._body[1]._name)
 
 
 if __name__ == '__main__':
