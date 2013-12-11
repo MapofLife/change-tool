@@ -29,7 +29,10 @@ handlers:
       
 - url: /api/year
   script: year_handler.application
-  
+
+- url: /api/assess
+  script: assess_handler.application
+ 
 - url: /(.*\.(gif|png|jpg))
   static_files: static/\1
   upload: static/(.*\.(gif|png|jpg))
