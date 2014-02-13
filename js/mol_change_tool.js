@@ -1,4 +1,5 @@
-var scientificname = getURLParameter("name"), 
+var scientificname = getURLParameter("name"),
+    latest = 0, 
     commonnames = '',
     modis_maptypes = {},
     chartData = [],
@@ -196,6 +197,20 @@ function init() {
            }
       );
       
+      $('.elev_range').slider(
+          {
+              range: true,
+              min: -500,
+              max: 8000,
+              values: [ -500, 8000 ],
+              slide: function( event, ui ) {
+                $('.elev_min').html('Elevation range from ' + ui.values[ 0 ]+ 'm ');
+                $('.elev_max').html(ui.values[ 1 ] + 'm');
+                $('.rerun').show();
+              }
+        }
+      );
+      
       $('.rerun').click(
           function() {
               speciesPrefs.rows[0].modis_habitats = _.map(
@@ -297,6 +312,7 @@ function getEE_ID(name) {
 }
 function callBackend(response) {
     var bounds, habitats;
+    latest++; 
     $('.rerun').hide();
     speciesPrefs = response;
     if (response.total_rows == 0) {
@@ -316,11 +332,8 @@ function callBackend(response) {
         new google.maps.LatLng(response.rows[0].maxy, response.rows[0].maxx)
     );
     habitats = response.rows[0].modis_habitats.split(','),
-        elev = [
-            (response.rows[0].mine == 'DD') ? 
-                -1000 : response.rows[0].mine,
-            (response.rows[0].maxe == 'DD') ? 
-                9000 : response.rows[0].maxe],
+        elev = [ $('.elev_range').slider( "values", 0 ),
+                 $('.elev_range').slider( "values", 1 )],
             ee_id = response.rows[0].ee_id,
         mod_params = {
             habitats : response.rows[0].modis_habitats,
@@ -331,7 +344,8 @@ function callBackend(response) {
             miny: response.rows[0].miny,
             maxx: response.rows[0].maxx,
             maxy: response.rows[0].maxy,
-            get_area: true
+            get_area: true,
+            call_ver: latest
         };
     scientificname = response.rows[0].scientificname;
     commonnames = ' (' + response.rows[0].names + ')';
@@ -358,11 +372,17 @@ function callBackend(response) {
     
     $('.family').html('Family: ' + response.rows[0].family);
     $('._order').html('Order: ' + response.rows[0]._order);
+
     if(elev[0] != '-1000' && elev[1] != '10000') {
-        $('.elev_range').html('Elevation range: '+ elev[0]+' to '+elev[1]+' meters');
+        $('.elev_range').slider("values",[Math.round(parseFloat(elev[0])),Math.round(parseFloat(elev[1]))]);
+        $('.elev_min').html('Elevation range from ' + elev[0] + 'm to ');
+        $('.elev_max').html(elev[1] + 'm');
     } else {
-        $('.elev_range').html('Elevation range: all');
+        $('.elev_range').slider("values",[-500,8000]);
+        $('.elev_min').html('All elevations');
+        $('.elev_max').html('');
     }
+    
     $('.suitable [class*=class_]').hide();
     $('.unsuitable [class*=class_]').show();
     $.each(
@@ -381,6 +401,7 @@ function callBackend(response) {
         host+'api/change?callback=?', 
         mod_params, 
         function(response) {
+            
             chartHandler(response);
         },
         'jsonp'

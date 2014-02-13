@@ -34,6 +34,8 @@ class ChangeAPI(webapp2.RequestHandler):
         self.miny = self.request.get('miny', -89.9)
         self.maxx = self.request.get('maxx', 179.9)
         self.maxy = self.request.get('maxy', 89.9)
+        self.call_ver = self.request.get('call_ver',None)
+        self.mapid_results['call_ver']= self.call_ver
         
         logging.info('Firing requests for 2001 to 2013')
         for i in range(2001,2013):
@@ -77,13 +79,13 @@ class ChangeAPI(webapp2.RequestHandler):
                if len(self.area_results) > len(self.rpcs):
                    if self.callback is not None:
                        self.response.out.write(
-                        '%s(%s);' % (self.callback, json.dumps({'area': self.area_results, 'pop' : self.pop_results})))
+                        '%s(%s);' % (self.callback, json.dumps({'area': self.area_results, 'pop' : self.pop_results, 'call_ver' : self.call_ver})))
                    else:
                        self.response.out.write(
-                            json.dumps({'area': self.area_results, 'pop' : self.pop_results}))
+                            json.dumps({'area': self.area_results, 'pop' : self.pop_results, 'call_ver' : self.call_ver}))
            else:
                self.mapid_results["modis_%s" % year] = json.loads(result.content)
-               if len(self.mapid_results) >= len(self.rpcs):
+               if len(self.mapid_results) > len(self.rpcs):
                    if self.callback is not None:
                        self.response.out.write(
                         '%s(%s);' % (self.callback, json.dumps(self.mapid_results)))

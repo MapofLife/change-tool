@@ -1,150 +1,242 @@
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
-from google.appengine.api import urlfetch
 
-import mol_assets
+
 import os
 import ee
+import config
 import webapp2
+import httplib2
 import urllib
 import logging
+from google.appengine.api import urlfetch
+
 import json
-import config
+from oauth2client.appengine import AppAssertionCredentials
+
+EE_TILE_URL = 'https://earthengine.googleapis.com/map/%s/{Z}/{X}/{Y}?token=%s'
 
 class AssessHandler(webapp2.RequestHandler):
+    def render_template(self, f, template_args):
+        path = os.path.join(os.path.dirname(__file__), "templates", f)
+        self.response.out.write(template.render(path, template_args))
+
+    def getRandomPoints(self,sciname):
+        cdburl = 'https://mol.cartodb.com/api/v1/sql?q=%s'
+        sql = "Select " \
+            "ST_X(ST_Transform(the_geom_webmercator,4326)) as lon, " \
+            "ST_Y(ST_Transform(the_geom_webmercator,4326)) as lat " \
+            "FROM get_tile('gbif','points','%s','gbif_taxloc') " \
+            "order by random() limit 1000"
+        qstr = urllib.quote_plus((sql % (sciname)))
+        url = cdburl % (qstr)
+
+        points = urlfetch.fetch(url)
+        return points.content
+        
     def get(self):
-        
-        
+
         ee.Initialize(config.EE_CREDENTIALS, config.EE_URL)
-        
-        # Gather http req params
-        scinema = self.sciname = self.request.get('sciname', None)
+
+        sciname = self.request.get('sciname', None)
         habitats = self.request.get('habitats', None)
         elevation = self.request.get('elevation', None)
         year = self.request.get('year', None)
-        get_area = self.request.get('get_area', 'false')
+        mode = self.request.get('mode', 'area')
         ee_id = self.request.get('ee_id', None)
-        minx = self.request.get('minx', -179.99)
-        miny = self.request.get('miny', -89.99)
-        maxx = self.request.get('maxx', 179.99)
-        maxy = self.request.get('maxy', 89.99)
+        minlng = self.request.get('minx', None)
+        maxlng = self.request.get('maxx', None)
+        minlat = self.request.get('miny', None)
+        maxlat = self.request.get('maxy', None)
         
-        self.getPoints()
         
-        # Get images for the year of interest
-        cover = ee.Image(mol_assets.modis51[year])
-        elev = ee.Image(mol_assets.elevation)        
-        pop = ee.Image(mol_assets.population[year])
-        pop = pop.mask(pop.lt(0))
-        # Get the species range map
-        species = ee.Image(ee_id)
+        #Get land cover and elevation layers
+        cover = ee.Image('MCD12Q1/MCD12Q1_005_%s_01_01' % 
+                         (year)).select('Land_Cover_Type_1')
+                         
+        elev = ee.Image('GME/images/04040405428907908306-08319720230328335274')
+        #elev = ee.Image('srtm90_v4')
+        #minlat = round(extent["sw"]["lat"]*1000)/1000
+        
+        #minlng = round(extent["sw"]["lng"]*1000)/1000
+        
+        #maxlat = round(extent["ne"]["lat"]*1000)/1000
+        
+        #maxlng = round(extent["ne"]["lng"]*1000)/1000
+    
+        #define a bounding polygon for the reducers
+       
+        region = ee.Feature(
+            ee.Feature.Polygon([
+                [float(minlng),float(minlat)],
+                [float(minlng),float(maxlat)],
+                [float(maxlng),float(maxlat)],
+                [float(maxlng),float(minlat)],
+                [float(minlng),float(minlat)]
+            ])
+        )
+        geometry = region.geometry()
+        
+       
+        output = ee.Image(0)
+        empty = ee.Image(0).mask(0)
 
-        # Elevation range and habitats for this species 
+        species = ee.Image(ee_id)
+        
+        
+        
+        #parse the CDB response
+
         min = int(elevation.split(',')[0])
         max = int(elevation.split(',')[1])
         habitat_list = habitats.split(",")
 
-
-        output = ee.Image(0).mask(species)
+        output = output.mask(species)
 
         for pref in habitat_list:
-            if pref == 17:
-                mod51pref = 0
-            else:
-                mod51pref = pref
-            
-            output = output.where(
-                cover.eq(int(mod51pref)).And(elev.gt(min)).And(elev.lt(max)),
-                int(mod51pref)
-            )
+            for year in range(2001,2010):
+                cover = ee.Image('MCD12Q1/MCD12Q1_005_%s_01_01' % 
+                             (year)).select('Land_Cover_Type_1')
+                output = output.where(
+                    cover.eq(int(pref)).And(elev.gt(min)).And(elev.lt(max)),1)
 
         result = output.mask(output)
 
-        if(get_area == 'false'):
+        if mode == 'range':
             
-            # just return Map ID's
-            map = result.getMapId({
-                'palette': 'aec3d4,152106,225129,369b47,30eb5b,387242,6a2325,'\
-                        'c3aa69,b76031,d9903d,91af40,111149,cdb33b,cc0013,'\
-                        '33280d,d7cdcc,f7e084,6f6f6f',
-                'min':0,
-                'max': 17,
-                'opacity': 1
+            rangeMap = result.getMapId({
+                'palette': '000000,85AD5A',
+                'max': 1,
+                'opacity': 0.8
             })
-            getTileUrl = 'https://earthengine.googleapis.com/'\
-                'map/%s/{Z}/{X}/{Y}?token=%s' % (
-                    map['mapid'],
-                    map['token']
-                )
-
-
-            self.response.out.write(json.dumps(getTileUrl))
+            response = {
+                'maps' : [
+                    EE_TILE_URL % 
+                         (rangeMap['mapid'], rangeMap['token'])
+                    
+                ]
+            }
+            self.response.headers["Content-Type"] = "application/json"
+            self.response.out.write(json.dumps(response))
+        elif mode == 'assess':
+            pointjson = self.getRandomPoints(sciname)
+            pjson = json.loads(pointjson)
+            
+            logging.info(json.dumps(pjson))
+            
+            if pjson["total_rows"] == 0:
+               self.response.headers["Content-Type"] = "application/json"
+               self.response.out.write(json.dumps({
+                                        "has_pts" : False
+                                        }
+                                       ))    
+            else:
+                #Create an array of Points
+                pts = []
+                for row in pjson["rows"]:
+                    pts.append(
+                       ee.Feature(
+                          ee.Feature.Point(
+                             row["lon"],row["lat"]),
+                             {'val':0 }))
+                
+                #Create a FeatureCollection from that array 
+                pts_fc = ee.FeatureCollection(pts)
+                logging.info('Created the point FC')
+                #this code reduces the point collection to an image.  Each pixel 
+                #contains a count for the number of pixels that intersect with it
+                #then, the point count image is masked by the range
+                #imgPoints = pts_fc.reduceToImage(['val'], ee.call('Reducer.sum')).mask(result);
+                #imgOutPoints = pts_fc.reduceToImage(['val'], ee.call('Reducer.sum')).mask(result.neq(1));
+                #now, just sum up the points image.  this is the number of points that overlap the range
+                #ptsIn = imgPoints.reduceRegion(ee.call('Reducer.sum'), geometry, 10000)
+                
+                #This would be for making pts_in and pts_out FeatureCollections 
+                #that can be mapped in different colors. Doesn't work...
+                #ptsInFC = imgPoints.reduceToVectors(None,None,100000000)
+                #ptsOutFC = imgOutPoints.reduceToVectors(None, None, 100000000)
+                
+                
+                #data = ee.data.getValue({"json": ptsIn.serialize()})
+    
+                #pts_in = data["sum"]
+                
+                
+                
+                
+                #Sample the range map image
+                coll = ee.ImageCollection([result])
+                logging.info('Sample the image')
+                sample = coll.getRegion(pts_fc,2000).getInfo()
+                logging.info('Sampled it')
+                #Create a FC for the points that fell inside the range
+                pts_in = []
+                for row in sample[1:]:
+                    pts_in.append(
+                        ee.Feature(
+                            ee.Feature.Point(row[1], row[2]),{'val': 1})
+                    )
+                
+                pts_in_fc = ee.FeatureCollection(pts_in)
+                
+                #reverse Join to get the ones that are outside the range
+                pts_out_fc = pts_fc.groupedJoin(
+                    pts_in,'within_distance',distance=1000,mode='inverted')
+                
+                pts_out_map = pts_out_fc.getMapId({'color': 'e02070'})
+                pts_in_map = pts_in_fc.getMapId({'color': '007733'})
+                
+                response = {
+                    'maps' : [
+                        EE_TILE_URL % 
+                             (pts_in_map['mapid'],pts_in_map['token']),
+                        EE_TILE_URL % 
+                             (pts_out_map['mapid'],pts_out_map['token'])
+                        
+                    ],
+                    'has_pts' : True,
+                    'pts_in' : len(pts_in),
+                    'pts_tot' : len(pts)
+                    # add points stats to result
+                }
+                self.response.headers["Content-Type"] = "application/json"
+                self.response.out.write(json.dumps(response))
         else:
-            # compute the area and population
+        #compute the area
+          
             area = ee.call("Image.pixelArea")
             sum_reducer = ee.call("Reducer.sum")
             
             area = area.mask(species)
             total = area.mask(result.mask())
-          
-            pop = pop.mask(species)
-            
-           # Generate a region to do the calculation over
-            region = ee.Feature(
-                ee.Feature.Polygon(
-                    [[float(minx), float(miny)],
-                     [float(minx), float(maxy)],
-                     [float(maxx), float(maxy)],
-                     [float(maxx), float(miny)],
-                     [float(minx), float(miny)]
-                     ]))
-            geometry = region.geometry()
 
-            # #compute area on 1km scale
+            ##compute area on 10km scale
             clipped_area = total.reduceRegion(
-                sum_reducer, geometry, scale=5000, bestEffort=True)
-            total_pop = pop.reduceRegion(
-                sum_reducer, geometry, scale=5000, bestEffort=True)
-            clipped_pop = pop.mask(result.mask()).reduceRegion(
-                sum_reducer, geometry, scale=5000, bestEffort=True)
+                sum_reducer,geometry,scale=1000,bestEffort=True)
+            total_area = area.reduceRegion(
+                sum_reducer,geometry,scale=1000,bestEffort=True)
 
-            properties = {
-                'clipped_area': clipped_area,
-                'total_pop': total_pop,
-                'clipped_pop':clipped_pop
-            }
+            properties = {'total': total_area, 'clipped': clipped_area}
 
             region = region.set(properties)
 
             data = ee.data.getValue({"json": region.serialize()})
-            data = data["properties"]
-            species_stats = {
-               'clipped_area': round(
-                    (data["clipped_area"]["area"]) / 1000000, 3),
-               'total_pop': round(
-                    data["total_pop"]["b1"], 0),
-               'clipped_pop': round(
-                    data["clipped_pop"]["b1"], 0)
+            logging.info(json.dumps(data))
+            #self.response.headers["Content-Type"] = "application/json"
+            #self.response.out.write(json.dumps(data))
+            ta = 0
+            ca = 0
+            ta = data["properties"]["total"]["area"]
+            ca = data["properties"]["clipped"]["area"]
+            template_values = {
+               'clipped_area': ca/1000000,
+               'total_area': ta/1000000
             }
-
-            self.response.out.write(
-                json.dumps(species_stats)
-            )
-        def getPoints(self):
-            cdburl = 'http://mol.cartodb.com/api/sql?q=%s'
-            sql = "Select " \
-                "ST_X(ST_Transform(the_geom_webmercator,4326)) as lon, " \
-                "ST_Y(ST_Transform(the_geom_webmercator,4326)) as lat " \
-                "FROM get_tile_beta('gbif_aug_2013','%s') " \
-                "order by random() limit 1000"
-            url =  cdburl % (sql % (self.sciname))
-            
-            result = urlfetch.get(url)
-            logging.info(result)
+            self.response.headers["Content-Type"] = "application/json"
+            self.response.out.write(json.dumps(template_values))
             
 application = webapp2.WSGIApplication(
-    [('/api/assess', AssessHandler)], 
-    debug=True)
+    [ ('/api/assess', AssessHandler)], debug=True)
 
 def main():
     run_wsgi_app(application)

@@ -158,6 +158,12 @@ _label {
     text-decoration: underline;
 }
 
+.elev_range {
+    height:1px;
+    margin: 4px;
+    padding-top: 3px;
+    padding-bottom:6px;
+}
 [class*=class_] {cursor: pointer; cursor: hand;}
 .class_0 .legend {background-color:#aec3d4}
 .class_1 .legend {background-color:#152106}
