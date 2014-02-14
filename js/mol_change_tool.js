@@ -219,6 +219,8 @@ function init() {
                     return $(elem).attr("class").replace("class_","");
                   }
               ).join(',');
+              speciesPrefs.rows[0].mine = $('.range_slider').slider('values',0);
+              speciesPrefs.rows[0].maxe = $('.range_slider').slider('values',1);
               clearCharts()
               showLoaders();
               callBackend(speciesPrefs);     
@@ -332,8 +334,7 @@ function callBackend(response) {
         new google.maps.LatLng(response.rows[0].maxy, response.rows[0].maxx)
     );
     habitats = response.rows[0].modis_habitats.split(','),
-        elev = [ $('.elev_range').slider( "values", 0 ),
-                 $('.elev_range').slider( "values", 1 )],
+            elev = [response.rows[0].mine, response.rows[0].maxe],
             ee_id = response.rows[0].ee_id,
         mod_params = {
             habitats : response.rows[0].modis_habitats,
