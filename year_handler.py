@@ -85,6 +85,7 @@ class YearHandler(webapp2.RequestHandler):
             total = area.mask(result.mask())
           
             pop = pop.mask(species)
+            pop = pop.where(pop.lt(0),0)
             
            # Generate a region to do the calculation over
             region = ee.Feature(
@@ -99,9 +100,9 @@ class YearHandler(webapp2.RequestHandler):
 
             # #compute area on 1km scale
             clipped_area = total.reduceRegion(
-                sum_reducer, geometry, scale=5000, bestEffort=True)
+                sum_reducer, geometry, maxPixels=10000000000)
             total_pop = pop.reduceRegion(
-                sum_reducer, geometry, scale=5000, bestEffort=True)
+                sum_reducer, geometry, maxPixels=10000000000)
             
             properties = {
                 'clipped_area': clipped_area,

@@ -19,7 +19,7 @@ class ChangeAPI(webapp2.RequestHandler):
     def get(self):
         
         self.area_results = [['Year','Refined Range Area (sq km)']]
-        self.pop_results = [['Year','Population within Range', 'Population within Refined Range']]
+        self.pop_results = [['Year','Population within Range']]
         
         self.mapid_results = {}
         self.rpcs = []

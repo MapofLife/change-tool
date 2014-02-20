@@ -107,7 +107,10 @@ _label {
     vertical-align: top;
 }
 .habitats {
-   
+  
+}
+.content {
+    display: none;
 }
 .search {
     left:60px;
