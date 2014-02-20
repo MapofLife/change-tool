@@ -73,8 +73,7 @@ class ChangeAPI(webapp2.RequestHandler):
                ])
                self.pop_results.append([
                      year,                   
-                     record["total_pop"],
-                     record["clipped_pop"]
+                     record["total_pop"]
                ])
                if len(self.area_results) > len(self.rpcs):
                    if self.callback is not None:

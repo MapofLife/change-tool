@@ -102,13 +102,10 @@ class YearHandler(webapp2.RequestHandler):
                 sum_reducer, geometry, scale=5000, bestEffort=True)
             total_pop = pop.reduceRegion(
                 sum_reducer, geometry, scale=5000, bestEffort=True)
-            clipped_pop = pop.mask(result.mask()).reduceRegion(
-                sum_reducer, geometry, scale=5000, bestEffort=True)
-
+            
             properties = {
                 'clipped_area': clipped_area,
                 'total_pop': total_pop,
-                'clipped_pop':clipped_pop
             }
 
             region = region.set(properties)
@@ -119,9 +116,7 @@ class YearHandler(webapp2.RequestHandler):
                'clipped_area': round(
                     (data["clipped_area"]["area"]) / 1000000, 3),
                'total_pop': round(
-                    data["total_pop"]["b1"], 0),
-               'clipped_pop': round(
-                    data["clipped_pop"]["b1"], 0)
+                    data["total_pop"]["b1"], 0)
             }
 
             self.response.out.write(

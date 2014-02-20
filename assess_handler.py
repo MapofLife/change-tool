@@ -26,11 +26,12 @@ class AssessHandler(webapp2.RequestHandler):
         sql = "Select " \
             "ST_X(ST_Transform(the_geom_webmercator,4326)) as lon, " \
             "ST_Y(ST_Transform(the_geom_webmercator,4326)) as lat " \
-            "FROM get_tile('gbif','points','%s','gbif_taxloc') " \
+            "FROM get_tile_beta('gbif_aug_2013','%s',1995,2015) " \
             "order by random() limit 1000"
+        
         qstr = urllib.quote_plus((sql % (sciname)))
         url = cdburl % (qstr)
-
+        logging.info(url)
         points = urlfetch.fetch(url)
         return points.content
         
@@ -156,18 +157,13 @@ class AssessHandler(webapp2.RequestHandler):
                 #ptsInFC = imgPoints.reduceToVectors(None,None,100000000)
                 #ptsOutFC = imgOutPoints.reduceToVectors(None, None, 100000000)
                 
-                
                 #data = ee.data.getValue({"json": ptsIn.serialize()})
-    
                 #pts_in = data["sum"]
-                
-                
-                
                 
                 #Sample the range map image
                 coll = ee.ImageCollection([result])
                 logging.info('Sample the image')
-                sample = coll.getRegion(pts_fc,2000).getInfo()
+                sample = coll.getRegion(pts_fc,10000).getInfo()
                 logging.info('Sampled it')
                 #Create a FC for the points that fell inside the range
                 pts_in = []
@@ -181,7 +177,7 @@ class AssessHandler(webapp2.RequestHandler):
                 
                 #reverse Join to get the ones that are outside the range
                 pts_out_fc = pts_fc.groupedJoin(
-                    pts_in,'within_distance',distance=1000,mode='inverted')
+                    pts_in,'within_distance',distance=10000,mode='inverted')
                 
                 pts_out_map = pts_out_fc.getMapId({'color': 'e02070'})
                 pts_in_map = pts_in_fc.getMapId({'color': '007733'})

@@ -2,6 +2,7 @@ var scientificname = getURLParameter("name"),
     latest = 0, 
     commonnames = '',
     modis_maptypes = {},
+    mod_params,
     chartData = [],
     speciesPrefs,
     host = '', //(window.location.hostname != 'localhost') ?
@@ -226,6 +227,8 @@ function init() {
               callBackend(speciesPrefs);     
           }
       );
+      
+      $('.assess').click(doAssessment);
 
       $('.mode').change(
           function() {
@@ -240,6 +243,24 @@ function init() {
         $('.working').hide();
         clearCharts();
     }
+}
+function doAssessment () {
+    mod_params["mode"]= "assess";
+    mod_params["sciname"]= scientificname;
+    mod_params["call_ver"]= latest;
+       
+        $.getJSON(
+            '/api/assess',
+            mod_params,
+            function(response) {
+                if(response.has_pts) {
+                    $('.assess_results')
+                        .text(response.pts_in + ' of ' +
+                            response.pts_tot +
+                            ' points are within the refined range.');
+                }
+            }
+        );
 }
 function clearCharts() {
     $('.map_container').empty();
@@ -333,9 +354,10 @@ function callBackend(response) {
         new google.maps.LatLng(response.rows[0].miny, response.rows[0].minx),
         new google.maps.LatLng(response.rows[0].maxy, response.rows[0].maxx)
     );
-    habitats = response.rows[0].modis_habitats.split(','),
+            habitats = response.rows[0].modis_habitats.split(','),
             elev = [response.rows[0].mine, response.rows[0].maxe],
-            ee_id = response.rows[0].ee_id,
+            ee_id = response.rows[0].ee_id;
+            
         mod_params = {
             habitats : response.rows[0].modis_habitats,
             elevation : elev.join(','),
@@ -487,7 +509,7 @@ function drawVisualization(data, title) {
         area_chart = new google.visualization.ScatterChart($('.area_chart')[0]);
     
     
-    if(data.pop[1][2]&&data.pop[2][2]>=0) {
+    if(data.pop[1][2]>=0) {
         pop_data =  google.visualization.arrayToDataTable(data.pop),
         pop_chart = new google.visualization.ScatterChart($('.pop_chart')[0]);
         $('pop_chart').empty();

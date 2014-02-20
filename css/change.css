@@ -158,6 +158,17 @@ _label {
     text-decoration: underline;
 }
 
+.assess {
+    cursor: pointer;
+    cursor: hand;
+    float:left;
+    padding:4px;
+    text-decoration: underline;
+}
+.assess_results {
+    float:left;
+}
+
 .elev_range {
     height:1px;
     margin: 4px;
